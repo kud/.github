@@ -1,0 +1,54 @@
+# Blocking scan config for the global git hooks (pre-commit and pre-push).
+#
+# The built-in rules find credentials by their own shape: a GitHub token looks
+# like a GitHub token wherever it sits. These rules find credentials by where
+# they sit instead, inside a URL, where the value itself has no recognisable
+# shape and the built-ins wave it through.
+#
+# useDefault keeps every built-in rule. Without it this file would REPLACE the
+# rule set, and every scan would report a clean repo forever.
+#
+# The hooks pass this file with -c only when the repo has no .betterleaks.toml
+# or .gitleaks.toml of its own: a repo's config carries allowlists for its own
+# fixtures, and overriding it would turn those back into findings.
+
+[extend]
+useDefault = true
+
+# A key carried in a query string: ?token=…, &api_key=…, &sig=…
+#
+# Anchored on ? or & directly before the name, so only the exact parameter
+# matches. That is what keeps Arte's `queryToken` out (544 characters of
+# URL-encoded JSON search state, not a credential): `&queryToken=` has no ? or &
+# straight before `token`. The 16-character floor drops short values such as
+# pagination cursors and `?key=en`, and the charset excludes `$` and `{`, so a
+# shell or template placeholder (`?token=$TOKEN`, `?key={{ key }}`) is never a
+# finding: only a literal value is.
+[[rules]]
+id = "url-query-credential"
+description = "Credential in a URL query parameter"
+regex = '''[?&](?i:access_token|api_key|apikey|token|key|secret|sig|signature|auth|password)=([A-Za-z0-9_\-.%]{16,})'''
+secretGroup = 1
+keywords = ["token=", "key=", "secret=", "sig=", "signature=", "auth=", "password="]
+
+# scheme://user:pass@host. mailto: has no //, so it never matches; neither does
+# git@github.com:owner/repo (no scheme) or ssh://git@host (no password).
+[[rules]]
+id = "url-userinfo-credential"
+description = "Username and password embedded in a URL"
+regex = '''\b[A-Za-z][A-Za-z0-9+.-]*://[^\s:/@"'<>$]+:([^\s:/@"'<>${}]+)@[A-Za-z0-9.-]+'''
+secretGroup = 1
+keywords = ["://"]
+
+  [[rules.allowlists]]
+  description = "Documentation placeholders, not passwords."
+  regexTarget = "secret"
+  regexes = ['''^(?i:password|passwd|pass|secret|token|changeme|example|x+|\*+|\.\.\.)$''']
+
+# A public share link: anyone holding the URL can read what it points at, so
+# the link is the credential.
+[[rules]]
+id = "public-share-link"
+description = "Public file share link (pCloud or Dropbox)"
+regex = '''https?://(?:[a-z0-9-]+\.)*(?:pcloud\.link|pcloud\.com/publink|dropbox\.com/(?:s|scl)/)[^\s"'<>)]*'''
+keywords = ["pcloud", "dropbox.com"]
