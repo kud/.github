@@ -1,0 +1,56 @@
+name: Comms thread
+description: Open a thread in a Todoist Comms channel, or close one, as whoever owns the token.
+
+# A composite action, not a reusable workflow: it runs as a step inside the
+# caller's job, so an alert costs no extra job. No checkout and no setup-node:
+# the runner's own Node.js runs post.js, which has no dependencies.
+
+inputs:
+  token:
+    description: The Comms API token of the posting account
+    required: true
+  mode:
+    description: '"open" a new thread, or "close" an existing one'
+    default: open
+  channel-id:
+    description: Channel to open the thread in (mode open)
+    default: ""
+  thread-id:
+    description: Thread to close (mode close)
+    default: ""
+  title:
+    description: Thread title (mode open)
+    default: ""
+  content:
+    description: Thread body (open) or closing comment (close); Markdown
+    required: true
+  notify:
+    description: '"channel" (everyone in the channel) or "quiet"; defaults to channel on open, quiet on close'
+    default: ""
+  dry-run:
+    description: Print the request instead of sending it
+    default: "false"
+
+outputs:
+  thread-id:
+    description: The opened or closed thread's id
+    value: ${{ steps.post.outputs.thread-id }}
+  url:
+    description: Web link to the opened thread (mode open)
+    value: ${{ steps.post.outputs.url }}
+
+runs:
+  using: composite
+  steps:
+    - id: post
+      shell: bash
+      env:
+        COMMS_TOKEN: ${{ inputs.token }}
+        COMMS_MODE: ${{ inputs.mode }}
+        COMMS_CHANNEL_ID: ${{ inputs.channel-id }}
+        COMMS_THREAD_ID: ${{ inputs.thread-id }}
+        COMMS_TITLE: ${{ inputs.title }}
+        COMMS_CONTENT: ${{ inputs.content }}
+        COMMS_NOTIFY: ${{ inputs.notify }}
+        DRY_RUN: ${{ inputs.dry-run == 'true' && '--dry-run' || '' }}
+      run: node "$GITHUB_ACTION_PATH/post.js" $DRY_RUN

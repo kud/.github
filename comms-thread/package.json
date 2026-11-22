@@ -1,0 +1,13 @@
+{
+  "name": "comms-thread",
+  "private": true,
+  "type": "module",
+  "description": "Composite action: open or close a Todoist Comms thread",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
